@@ -2,6 +2,7 @@
 
 import type React from "react"
 
+import {verifyProof}  from "zk-polka-sdk"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -29,18 +30,26 @@ export default function VerifyAgePage() {
     }
   }, [router])
 
-  const calculateAge = (birthDate: string) => {
-    const today = new Date()
-    const birth = new Date(birthDate)
-    let age = today.getFullYear() - birth.getFullYear()
-    const monthDiff = today.getMonth() - birth.getMonth()
+  const verifyAge = async (birthDate: string) => {
+  const birth = new Date(birthDate);
+  const birthYear = birth.getFullYear();
 
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--
-    }
+  try {
+    const response = await fetch("/api/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ birthYear }),
+    });
 
-    return age
+    const data = await response.json();
+    return data.isValid==1? true : false;
+  } catch (e) {
+    console.error("ZK verification failed:", e);
+    throw e;
   }
+};
+
+
 
   const handleVerification = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,14 +70,15 @@ export default function VerifyAgePage() {
         await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
-      const age = calculateAge(dateOfBirth)
+      const verified = await verifyAge(dateOfBirth);
 
-      if (age < 18) {
-        setError("You must be 18 or older to access Web3 events")
-        setStep(1)
-        setProgress(0)
-        return
-      }
+if (!verified) {
+  setError("You must be 18 or older to access Web3 events");
+  setStep(1);
+  setProgress(0);
+  return;
+}
+
 
       setStep(3)
       localStorage.setItem("ageVerified", "true")
